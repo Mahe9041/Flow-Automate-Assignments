@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ChatApp — System Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    line-height: 1.8;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 60px 50px;
+  }
+  h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; color: #111; }
+  .subtitle { font-size: 14px; color: #666; margin-bottom: 48px; font-style: italic; }
+  .question {
+    margin-bottom: 40px;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .question-header {
+    background: #6C63FF;
+    color: white;
+    padding: 14px 22px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .brief {
+    padding: 20px 22px 16px;
+    background: #fafafa;
+    border-bottom: 1px solid #eee;
+    font-size: 15px;
+    color: #2a2a2a;
+    line-height: 1.75;
+  }
+  .brief p { margin-bottom: 8px; }
+  .brief p:last-child { margin-bottom: 0; }
+  .more-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 14px 22px 18px;
+    padding: 8px 18px;
+    background: #EAE8FF;
+    color: #5a52cc;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: 'Georgia', serif;
+  }
+  .more-btn:hover { background: #d5d0ff; }
+  .more-btn .arrow {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 11px;
+  }
+  .more-btn.open .arrow { transform: rotate(180deg); }
+  .details {
+    display: none;
+    padding: 0 22px 24px;
+    border-top: 1px dashed #ddd;
+    animation: fadeIn 0.2s ease;
+  }
+  .details.open { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  h3 { font-size: 15px; font-weight: 700; margin: 24px 0 8px; color: #333; }
+  p { margin-bottom: 12px; color: #2a2a2a; }
+  pre {
+    background: #f4f4f4;
+    border-left: 3px solid #6C63FF;
+    padding: 14px 18px;
+    border-radius: 0 6px 6px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 12px 0 18px;
+    white-space: pre;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 13.5px; }
+  th { background: #6C63FF; color: white; padding: 9px 14px; text-align: left; font-weight: 600; }
+  td { padding: 8px 14px; border-bottom: 1px solid #eee; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .callout {
+    background: #f0efff;
+    border-left: 4px solid #6C63FF;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+    font-size: 13.5px;
+    color: #3a3a3a;
+  }
+  .summary-section {
+    margin-top: 48px;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .summary-header {
+    background: #333;
+    color: white;
+    padding: 14px 22px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .summary-body { padding: 22px; }
+  hr { margin-top: 48px; border: none; border-top: 1px solid #ddd; }
+  .footer { font-size: 13px; color: #888; margin-top: 16px; text-align: center; }
+  .footer a { color: #6C63FF; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<h1>ChatApp — System Architecture</h1>
+<div class="subtitle">Founding Backend Engineer Assignment &nbsp;|&nbsp; Senapathi Mahesh &nbsp;|&nbsp; github.com/Mahe9041/chatapp</div>
+
+<!-- Q1 -->
+<div class="question">
+  <div class="question-header">Q1. What are you using for implementing WebSockets?</div>
+  <div class="brief">
+    <p>We use <strong>Socket.io</strong> on Node.js with the <strong>Socket.io Redis adapter</strong> (Upstash Redis).</p>
+    <p>When a user connects, their JWT is verified before the handshake completes. The server then joins them to Socket.io "rooms" for every conversation they belong to. Sending a message to a room instantly delivers it to all online members. The Redis adapter means all this works transparently across multiple server instances — adding a new server requires zero code changes.</p>
+  </div>
+  <button class="more-btn" onclick="toggle(this, 'q1-details')">
+    Read more <span class="arrow">▼</span>
+  </button>
+  <div class="details" id="q1-details">
+    <h3>Why Socket.io and not raw WebSockets?</h3>
+    <p>Raw WebSockets are the browser primitive. Socket.io is the production wrapper. The question is not raw vs Socket.io but rather: spend three weeks building reconnection, room management, and delivery acknowledgements from scratch, or use a battle-tested library and ship features instead? Socket.io is used in production by Trello, Notion, and many large-scale real-time apps.</p>
+    <table>
+      <tr><th>Concern</th><th>Raw WebSocket</th><th>Socket.io</th></tr>
+      <tr><td>Auto-reconnect with backoff</td><td>Build it yourself</td><td>Built in</td></tr>
+      <tr><td>Rooms (group addressing)</td><td>Build it yourself</td><td>Built in</td></tr>
+      <tr><td>Message acknowledgements</td><td>Build it yourself</td><td>Built in</td></tr>
+      <tr><td>Fallback for corporate firewalls</td><td>None</td><td>Long-polling fallback</td></tr>
+      <tr><td>Multi-server broadcasting</td><td>Very complex</td><td>Redis adapter</td></tr>
+    </table>
+    <h3>Why the Redis adapter is the most important decision here</h3>
+    <div class="callout">Without Redis: User A is on Server 1, User B is on Server 2. User A sends a message. Server 1 broadcasts to its local room. User B never receives it because they are on a different server.</div>
+    <p>With the Redis adapter, each server publishes events to a shared Redis channel. Every other server subscribes and delivers to its local connections. Adding a new server instance requires zero code changes.</p>
+    <pre>io.adapter(createAdapter(redisPub, redisSub));
+
+// Works transparently across ALL server instances
+io.to(`conversation:${conversationId}`).emit('message:new', message);</pre>
+    <h3>Path to 1 million users</h3>
+    <p><strong>Step 1 (10K to 100K):</strong> Deploy 5 to 10 Node instances behind a load balancer. Redis adapter is already in place, zero code changes needed.</p>
+    <p><strong>Step 2 (100K to 500K):</strong> Split into dedicated Redis clusters per concern: one for Socket.io, one for BullMQ, one for presence. Configuration change only.</p>
+    <p><strong>Step 3 (500K to 1M+):</strong> Deploy servers in multiple regions with GeoDNS routing. This is how Discord runs across 20+ global regions.</p>
+  </div>
+</div>
+
+<!-- Q2 -->
+<div class="question">
+  <div class="question-header">Q2. How would you support other message types like audio, documents, etc?</div>
+  <div class="brief">
+    <p>Binary files never pass through our server. We use the <strong>presigned URL pattern</strong>: the client asks our server for a signed upload URL, uploads the file directly to Cloudflare R2 (bypassing our server entirely), then sends a WebSocket message containing just the CDN URL and metadata.</p>
+    <p>This means our server never touches binary data. It just validates, signs, and steps aside. R2 handles the actual transfer. Adding a new message type (voice notes, location, polls) only requires a new schema shape and a UI component. The transport layer never changes.</p>
+  </div>
+  <button class="more-btn" onclick="toggle(this, 'q2-details')">
+    Read more <span class="arrow">▼</span>
+  </button>
+  <div class="details" id="q2-details">
+    <h3>Why not POST the file through our server?</h3>
+    <p><strong>Memory:</strong> A 100MB video held in memory consumes 100MB of RAM per concurrent upload. At 1,000 simultaneous uploads that is 100GB of RAM, which is impossible on any practical server.</p>
+    <p><strong>Bandwidth:</strong> Every byte travels through our server twice — in on upload, out on re-upload to storage. Double the cost, double the latency.</p>
+    <p><strong>Blocking:</strong> Node.js is single-threaded. Streaming large files blocks the event loop and degrades performance for every other connected user.</p>
+    <h3>Upload flow</h3>
+    <pre>Client            Our Server         Cloudflare R2
+  |                    |                    |
+  | POST /media/presign|                    |
+  |------------------->|                    |
+  |                    | validate + sign    |
+  |                    |------------------->|
+  |<-- { uploadUrl }   |                    |
+  |                    |                    |
+  | PUT file directly to R2 (no server)    |
+  |---------------------------------------->|
+  |<-------------------------------- 200 OK-|
+  |                    |                    |
+  | WS: { type:'image', url, blurhash }    |
+  |------------------->|                    |
+  |                    | store + broadcast  |
+  |<-- message:new ----|                    |</pre>
+    <h3>Client-side compression and Blurhash</h3>
+    <p>Images over 1MB are resized to 1920px max and re-encoded as WebP at 85% quality in the browser before upload. An 8MB phone photo becomes around 600KB. At 10,000 uploads, storage costs drop by 92%.</p>
+    <p>A Blurhash (30-byte blurred preview string) is generated and sent with the message. The receiver renders the blurred placeholder instantly with no network request, then loads the full image in the background. This is the same technique used by Medium, Facebook, and Notion.</p>
+    <h3>Path to 1 million users</h3>
+    <p>Cloudflare R2 has no egress fees, a significant cost advantage over AWS S3. At 1M users, files over 5MB should use multipart upload: the client splits the file into 5MB chunks and uploads in parallel. A 100MB video drops from 60 seconds to 15 seconds.</p>
+  </div>
+</div>
+
+<!-- Q3 -->
+<div class="question">
+  <div class="question-header">Q3. How do we check if someone is typing?</div>
+  <div class="brief">
+    <p>Typing indicators are purely ephemeral and never touch a database. The client emits a <strong>typing:start</strong> event on the first keystroke and a <strong>typing:stop</strong> event 1.5 seconds after the last keystroke (debounced). The server broadcasts these to all other room members.</p>
+    <p>A 5-second server-side safety timer auto-clears stale state if a client crashes without sending typing:stop. Typing state lives only in an in-memory Map on the server. If the server restarts, it disappears — which is exactly the correct behaviour.</p>
+  </div>
+  <button class="more-btn" onclick="toggle(this, 'q3-details')">
+    Read more <span class="arrow">▼</span>
+  </button>
+  <div class="details" id="q3-details">
+    <h3>Why no database, ever</h3>
+    <p>Typing state has no business value after the fact. Writing it to a database means thousands of writes per second that are never read again. Even Redis is overkill for a single-server deployment. We use an in-memory Map because it is the right tool for transient state.</p>
+    <pre>const typingTimeouts = new Map();
+
+socket.on('typing:start', (payload) => {
+  socket.to(`conversation:${payload.conversationId}`)
+    .emit('typing:start', { ...payload, userId });
+
+  const key = `${userId}:${payload.conversationId}`;
+  clearTimeout(typingTimeouts.get(key));
+  typingTimeouts.set(key, setTimeout(() => {
+    socket.to(`conversation:${payload.conversationId}`)
+      .emit('typing:stop', { userId });
+    typingTimeouts.delete(key);
+  }, 5000));
+});
+
+socket.on('disconnect', () => {
+  typingTimeouts.forEach((timeout, key) => {
+    if (key.startsWith(userId)) {
+      clearTimeout(timeout);
+      typingTimeouts.delete(key);
+    }
+  });
+});</pre>
+    <h3>Why we debounce on the client, not the server</h3>
+    <p>A user typing a 500-character message sends exactly 2 events: typing:start and typing:stop. Without client debouncing, every keystroke emits an event — 500 events for the same result. The general principle is to filter noise as close to the source as possible.</p>
+    <h3>Path to 1 million users</h3>
+    <p>The in-memory approach has one limitation on multi-server deployments: a typing timeout on Server 1 does not clean up if the disconnect happens on Server 2. The fix takes about 10 minutes: store typing state in Redis with a 5-second TTL. The key expires automatically, no cleanup code needed.</p>
+    <pre>await redis.setex(`typing:${userId}:${conversationId}`, 5, '1');
+// Redis expires the key automatically after 5 seconds</pre>
+  </div>
+</div>
+
+<!-- Q4 -->
+<div class="question">
+  <div class="question-header">Q4. How can we separate Admin, Read, or Write members in a group?</div>
+  <div class="brief">
+    <p>Every group member has a <strong>role</strong> (ADMIN, WRITE, or READ) stored in a PostgreSQL junction table. ADMIN can manage members. WRITE can send messages. READ can only receive.</p>
+    <p>Enforcement happens in two independent layers: an Express middleware on REST routes, and an explicit role check inside every WebSocket event handler. A READ member still joins the Socket.io room (so they receive messages) but their send events are rejected immediately with a permission denied acknowledgement.</p>
+  </div>
+  <button class="more-btn" onclick="toggle(this, 'q4-details')">
+    Read more <span class="arrow">▼</span>
+  </button>
+  <div class="details" id="q4-details">
+    <h3>Data model</h3>
+    <pre>CREATE TABLE conversation_members (
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  role            member_role NOT NULL DEFAULT 'WRITE',
+  UNIQUE(conversation_id, user_id)
+);
+
+CREATE TYPE member_role AS ENUM ('ADMIN', 'WRITE', 'READ');</pre>
+    <h3>Two enforcement layers, not one</h3>
+    <p>HTTP middleware only protects REST routes. A malicious client can open a WebSocket and emit events directly, bypassing HTTP entirely. So we check the role again inside every relevant event handler.</p>
+    <pre>// Layer 1: HTTP middleware
+const requireRole = (minimumRole) => async (req, res, next) => {
+  const member = await prisma.conversationMember.findUnique({...});
+  const ROLE_RANK = { ADMIN: 3, WRITE: 2, READ: 1 };
+  if (ROLE_RANK[member.role] &lt; ROLE_RANK[minimumRole]) {
+    throw new ForbiddenError(`Requires ${minimumRole} role`);
+  }
+  next();
+};
+
+// Layer 2: WebSocket handler
+socket.on('message:send', async (payload, ack) => {
+  const member = await ConvoRepo.findMember(payload.conversationId, userId);
+  if (member.role === 'READ') {
+    return ack({ status: 'error', code: 'PERMISSION_DENIED' });
+  }
+  // Only WRITE and ADMIN reach here
+  const message = await MessageService.send(userId, payload);
+  io.to(`conversation:${payload.conversationId}`).emit('message:new', message);
+  ack({ status: 'ok', seq: message.seq });
+});</pre>
+    <h3>Why PostgreSQL for roles and not MongoDB</h3>
+    <p>Roles are relational data. The UNIQUE constraint ensures a user can never hold two roles in the same group — the database enforces this, not application code. Role changes must also be immediately consistent: if an admin demotes someone to READ, the very next WebSocket event from that user must reflect it. PostgreSQL ACID guarantees this. Messages are high-volume append-only documents. MongoDB is better suited for that. Using the right database for the right problem is what makes systems maintainable at scale.</p>
+    <h3>Path to 1 million users</h3>
+    <p><strong>Step 1 (10K to 500K):</strong> Cache roles in Redis for 5 minutes. Invalidate on role change. Reduces Postgres load by 90%.</p>
+    <pre>let role = await redis.get(`role:${conversationId}:${userId}`);
+if (!role) {
+  role = (await prisma.conversationMember.findUnique(...))?.role;
+  await redis.setex(`role:${conversationId}:${userId}`, 300, role);
+}</pre>
+    <p><strong>Step 2 (500K to 1M):</strong> On connect, load all roles once and store on the socket object. Role checks become in-memory Map lookups — zero network calls per event.</p>
+    <pre>socket.data.roles = new Map(memberships.map(m => [m.conversationId, m.role]));
+
+// Zero DB calls on every message
+const role = socket.data.roles.get(payload.conversationId);
+if (!role || role === 'READ') return ack({ status: 'error' });</pre>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="summary-section">
+  <div class="summary-header">Scaling Summary</div>
+  <div class="summary-body">
+    <p style="margin-bottom:16px;">Every decision was made by asking: does this work today, and does it avoid blocking us tomorrow?</p>
+    <table>
+      <tr><th>Decision</th><th>1K users</th><th>1M users</th><th>What changes</th></tr>
+      <tr><td>Socket.io + Redis adapter</td><td>Yes</td><td>Yes</td><td>Add server instances</td></tr>
+      <tr><td>Presigned URL uploads</td><td>Yes</td><td>Yes</td><td>Nothing, R2 scales infinitely</td></tr>
+      <tr><td>Typing via in-memory Map</td><td>Yes</td><td>Needs change</td><td>Move to Redis TTL keys</td></tr>
+      <tr><td>Role check per WS event</td><td>Yes</td><td>Needs change</td><td>Redis cache, then socket memory</td></tr>
+      <tr><td>Single PostgreSQL instance</td><td>Yes</td><td>Needs change</td><td>Read replicas and PgBouncer</td></tr>
+      <tr><td>MongoDB message storage</td><td>Yes</td><td>Yes</td><td>Shard by conversationId</td></tr>
+      <tr><td>BullMQ offline delivery</td><td>Yes</td><td>Yes</td><td>Add more worker instances</td></tr>
+    </table>
+    <p>The items that need changes are not wrong choices. They are deliberate starting points. A system optimised for 1M users from day one is over-engineered for 1K users and will slow down every early decision. Build clean abstractions, measure the actual bottlenecks, and fix them one at a time as the system grows.</p>
+  </div>
+</div>
+
+<hr>
+<p class="footer">
+  Senapathi Mahesh &nbsp;|&nbsp;
+  <a href="https://github.com/Mahe9041/chatapp">github.com/Mahe9041/chatapp</a> &nbsp;|&nbsp;
+  <a href="https://chatapp-bht.pages.dev">chatapp-bht.pages.dev</a> &nbsp;|&nbsp;
+  <a href="https://chatapp-server-jsap.onrender.com/health">API health check</a>
+</p>
+
+<style>
+  @media print {
+    /* Show all details sections when printing */
+    .details { display: block !important; }
+    /* Hide the toggle buttons */
+    .more-btn { display: none !important; }
+    /* Avoid page breaks inside questions */
+    .question { page-break-inside: avoid; margin-bottom: 28px; }
+    /* Force page break before summary */
+    .summary-section { page-break-before: always; }
+    /* Remove animation for print */
+    .details { animation: none !important; }
+  }
+</style>
+<script>
+function toggle(btn, id) {
+  const details = document.getElementById(id);
+  const isOpen = details.classList.contains('open');
+  details.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.childNodes[0].textContent = isOpen ? 'Read more ' : 'Read less ';
+}
+</script>
+
+</body>
+</html>
+<head>
+<meta charset="UTF-8">
+<title>ChatApp — System Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    line-height: 1.8;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 60px 50px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #111;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 48px;
+    font-style: italic;
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 48px 0 6px;
+    color: #111;
+    border-bottom: 2px solid #6C63FF;
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 28px 0 8px;
+    color: #333;
+  }
+  p {
+    margin-bottom: 14px;
+    color: #2a2a2a;
+  }
+  pre {
+    background: #f6f6f6;
+    border-left: 3px solid #6C63FF;
+    padding: 16px 20px;
+    border-radius: 0 6px 6px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 14px 0 20px;
+    white-space: pre;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 14px;
+  }
+  th {
+    background: #6C63FF;
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #eee;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  .tag {
+    display: inline-block;
+    background: #EAE8FF;
+    color: #5a52cc;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+  }
+  .callout {
+    background: #f0efff;
+    border-left: 4px solid #6C63FF;
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 18px 0;
+    font-size: 14px;
+    color: #3a3a3a;
+  }
+  .summary-table th { background: #333; }
+  ul {
+    padding-left: 22px;
+    margin-bottom: 14px;
+  }
+  ul li { margin-bottom: 6px; }
+  .page-break { page-break-before: always; }
+  @media print {
+    body { padding: 40px; }
+    pre { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>ChatApp — System Architecture</h1>
+<div class="subtitle">Founding Backend Engineer Assignment &nbsp;|&nbsp; Senapathi Mahesh &nbsp;|&nbsp; github.com/Mahe9041/chatapp</div>
+
+<!-- Q1 -->
+<h2>Q1. What are you using for implementing WebSockets?</h2>
+
+<p>We use <strong>Socket.io</strong> running on Node.js, backed by the <strong>Socket.io Redis adapter</strong> (Upstash Redis). Here is the exact sequence of events every time a user connects:</p>
+
+<pre>1. User logs in and receives a JWT access token (15 min expiry)
+2. Client opens a Socket.io connection, sending the token as auth
+3. Server verifies the JWT before the handshake completes
+   If the token is invalid, the connection is rejected immediately
+4. Server loads all conversations the user belongs to from PostgreSQL
+5. User is joined to a Socket.io "room" for each conversation
+   Room naming pattern: "conversation:{uuid}"
+6. Any message emitted to a room reaches all members instantly:
+   io.to(`conversation:${id}`).emit('message:new', message)</pre>
+
+<h3>Why Socket.io and not raw WebSockets?</h3>
+
+<p>Raw WebSockets are the browser primitive. Socket.io is a production wrapper built on top of them. The honest question is not "raw vs Socket.io" but rather "do I spend three weeks building reconnection logic, room management, and delivery acknowledgements from scratch, or do I use a battle-tested library and spend that time building features?" Socket.io is used in production by Trello, Notion, and many large-scale real-time applications.</p>
+
+<table>
+  <tr><th>Concern</th><th>Raw WebSocket</th><th>Socket.io</th></tr>
+  <tr><td>Auto-reconnect with backoff</td><td>Build it yourself</td><td>Built in</td></tr>
+  <tr><td>Rooms (group addressing)</td><td>Build it yourself</td><td>Built in</td></tr>
+  <tr><td>Message acknowledgements</td><td>Build it yourself</td><td>Built in</td></tr>
+  <tr><td>Fallback for corporate firewalls</td><td>None</td><td>Long-polling fallback</td></tr>
+  <tr><td>Multi-server broadcasting</td><td>Very complex</td><td>Redis adapter</td></tr>
+</table>
+
+<h3>Why the Redis adapter matters for scaling</h3>
+
+<p>This is the single most important architectural decision in the WebSocket layer. Without it, horizontal scaling is impossible.</p>
+
+<div class="callout">
+Without Redis: User A is on Server 1, User B is on Server 2. User A sends a message. Server 1 broadcasts to its local room. User B never receives it because they are connected to a different server.
+</div>
+
+<p>With the Redis adapter, each server publishes events to a shared Redis channel. Every other server subscribes and delivers to its local connections. Adding a new server instance requires zero code changes.</p>
+
+<pre>io.adapter(createAdapter(redisPub, redisSub));
+
+// This now works transparently across ALL server instances
+io.to(`conversation:${conversationId}`).emit('message:new', message);</pre>
+
+<h3>Path to 1 million users</h3>
+
+<p><strong>Step 1 (10K to 100K concurrent):</strong> Deploy 5 to 10 Node instances behind a load balancer. The Redis adapter is already in place so this requires zero code changes.</p>
+
+<p><strong>Step 2 (100K to 500K concurrent):</strong> The single Redis instance becomes a bottleneck for pub/sub at high volume. Split into dedicated Redis clusters per concern: one for Socket.io, one for BullMQ, one for presence. Upstash supports clustering natively, so this is a configuration change only.</p>
+
+<p><strong>Step 3 (500K to 1M+ concurrent):</strong> Deploy Socket.io servers in multiple regions (ap-south-1, us-east-1, eu-west-1). Use GeoDNS to route users to the nearest region. This is exactly how Discord runs WebSocket servers across 20+ global regions.</p>
+
+<div class="callout">
+Why we built it this way for v1: The Redis adapter costs 2 lines of code but writes our entire horizontal scaling story upfront. Not using it means a painful refactor under load later. We spent 10 minutes on it now to avoid 2 weeks of work at 50,000 users.
+</div>
+
+<!-- Q2 -->
+<div class="page-break"></div>
+<h2>Q2. How would you support other message types like audio, documents, etc?</h2>
+
+<p>Binary files never pass through our WebSocket server or our REST API. We use the <strong>presigned URL pattern</strong>.</p>
+
+<pre>Client              Our Server           Cloudflare R2
+  |                     |                      |
+  | POST /media/presign |                      |
+  | { mimeType, size }  |                      |
+  |--------------------&gt;|                      |
+  |                     | validate + sign URL  |
+  |                     |---------------------&gt;|
+  |                     |&lt;---- signed PUT URL -|
+  |&lt;-- { uploadUrl }    |                      |
+  |                     |                      |
+  | PUT file to R2 directly (bypasses server)  |
+  |-------------------------------------------&gt;|
+  |&lt;------------------------------ 200 OK -----|
+  |                     |                      |
+  | WS: message:send    |                      |
+  | { type:'image',     |                      |
+  |   url: cdnUrl,      |                      |
+  |   blurhash: '...' } |                      |
+  |--------------------&gt;|                      |
+  |                     | store metadata       |
+  |                     | broadcast to room    |
+  |&lt;-- message:new -----|                      |</pre>
+
+<h3>Why not POST the file through our server?</h3>
+
+<p>The naive approach sends the file to our server which then uploads to storage. This has three problems that make it unworkable at scale.</p>
+
+<p><strong>Memory:</strong> A 100MB video held in memory consumes 100MB of RAM per concurrent upload. At 1,000 concurrent uploads that is 100GB of RAM, which is simply impossible on any practical server.</p>
+
+<p><strong>Bandwidth:</strong> Every byte travels through our server twice: once on the way in, once on the re-upload to storage. This doubles the bandwidth cost and doubles the latency for the user.</p>
+
+<p><strong>Blocking:</strong> Node.js runs on a single thread. Streaming large files blocks the event loop and degrades performance for every other user connected to that server.</p>
+
+<p>The presigned URL pattern eliminates all three. Our server does a few milliseconds of validation and URL signing, then steps aside. R2 handles the actual transfer.</p>
+
+<h3>Client-side compression</h3>
+
+<p>Before the upload even starts, the client compresses images that are over 1MB. The image is resized to a maximum of 1920px on the longest side and re-encoded as WebP at 85% quality. A typical 8MB phone photo becomes around 600KB. This happens entirely in the browser at zero server cost.</p>
+
+<p>At 10,000 users uploading 8MB photos, the uncompressed total is 80GB. With compression it is 6GB. Storage costs drop by 92% and CDN delivery is faster because smaller files transfer quicker to the recipient.</p>
+
+<h3>Blurhash previews</h3>
+
+<p>When an image is uploaded, the client generates a Blurhash: a 30-byte string encoding a blurred preview of the image. This string is sent with the message metadata. The receiver renders the blurred placeholder immediately from those 30 bytes, with no additional network request, then loads the full image in the background. The user perceives the image as instant even on a slow connection. This is the same technique used by Medium, Facebook, and Notion.</p>
+
+<h3>Message schema supports all types with no transport changes</h3>
+
+<pre>// MongoDB message document
+{
+  type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'system',
+  content: {
+    text:         "Hello!",           // text only
+    url:          "https://cdn.../file.webp", // all media
+    mimeType:     "image/webp",
+    fileSize:     204800,
+    durationSec:  12,                 // audio/video only
+    blurhash:     "L6PZfSjE...",     // images only
+    originalName: "Report.pdf"        // documents only
+  }
+}</pre>
+
+<p>Adding a new message type such as voice notes, location pins, or polls requires adding a new enum value, a content schema shape, and a UI component. The transport layer does not change at all. This is intentional extensibility.</p>
+
+<h3>Path to 1 million users</h3>
+
+<p>Cloudflare R2 is already production-grade and has no egress fees, which is a significant cost advantage over AWS S3 at scale. At 100K active users, Cloudflare's CDN automatically caches files at the edge, reducing R2 requests by around 80%. At 1M users, files over 5MB should use multipart upload: the client splits the file into 5MB chunks and uploads them in parallel. A 100MB video upload drops from 60 seconds to 15 seconds. Old media should be moved to cold storage after 90 days to reduce costs.</p>
+
+<!-- Q3 -->
+<div class="page-break"></div>
+<h2>Q3. How do we check if someone is typing?</h2>
+
+<p>Typing indicators are purely ephemeral. They never touch a database.</p>
+
+<pre>Client side:
+  First keystroke        emit typing:start once
+  Continued typing       nothing (no per-keystroke events)
+  No keypress for 1.5s   emit typing:stop (debounced)
+  Message sent           emit typing:stop immediately
+
+Server side:
+  typing:start received  broadcast to room, exclude sender
+                         start a 5-second safety timer
+  typing:stop received   broadcast to room, cancel timer
+  Client disconnects     cancel all timers for that user
+
+Other clients:
+  typing:start received  show "Mahesh is typing..." with dots
+  typing:stop received   hide the indicator</pre>
+
+<h3>Why no database, ever</h3>
+
+<p>Typing state is inherently transient. It has no business value after the fact. Writing it to a database would mean thousands of writes per second that are never read again. Even Redis would be overkill here. We store typing state in a server-side in-memory Map. If the server restarts, typing state is lost, which is exactly correct behaviour.</p>
+
+<pre>const typingTimeouts = new Map();
+
+socket.on('typing:start', (payload) => {
+  socket.to(`conversation:${payload.conversationId}`)
+    .emit('typing:start', { ...payload, userId });
+
+  const key = `${userId}:${payload.conversationId}`;
+  clearTimeout(typingTimeouts.get(key));
+  typingTimeouts.set(key, setTimeout(() => {
+    socket.to(`conversation:${payload.conversationId}`)
+      .emit('typing:stop', { userId, conversationId: payload.conversationId });
+    typingTimeouts.delete(key);
+  }, 5000)); // 5-second safety net for crashes
+});
+
+socket.on('disconnect', () => {
+  typingTimeouts.forEach((timeout, key) => {
+    if (key.startsWith(userId)) {
+      clearTimeout(timeout);
+      typingTimeouts.delete(key);
+    }
+  });
+});</pre>
+
+<h3>Why we debounce on the client, not the server</h3>
+
+<p>A user typing a 500-character message sends exactly 2 events: typing:start when they begin, and typing:stop when they pause or send. Without client-side debouncing, every keystroke would emit an event, which is 500 events for the same message. That is 250 times more network traffic for zero user benefit. The general principle is to filter noise as close to the source as possible.</p>
+
+<h3>Path to 1 million users</h3>
+
+<p>A typing:start event is roughly 100 bytes. Even if 10,000 users are simultaneously typing, which is a very high estimate for a 1M user platform, that is 1MB per second of WebSocket traffic. Modern servers handle this without difficulty.</p>
+
+<p>The one limitation of in-memory state is that it is per-server. On a multi-server deployment, a user's typing timeout on Server 1 does not clean up if the disconnect happens on a different server. The fix takes about 10 minutes: replace the in-memory Map with Redis keys that have a 5-second TTL. The key auto-expires and no cleanup code is needed at all.</p>
+
+<pre>// Multi-server version
+await redis.setex(`typing:${userId}:${conversationId}`, 5, '1');
+// No cleanup needed. Redis expires the key automatically.</pre>
+
+<!-- Q4 -->
+<div class="page-break"></div>
+<h2>Q4. How can we separate Admin, Read, or Write members in a group?</h2>
+
+<p>We use Role-Based Access Control (RBAC) enforced at both the HTTP middleware layer and the WebSocket event handler layer.</p>
+
+<h3>Data model in PostgreSQL</h3>
+
+<pre>CREATE TABLE conversation_members (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  role            member_role NOT NULL DEFAULT 'WRITE',
+  joined_at       TIMESTAMP DEFAULT NOW(),
+  last_read_at    TIMESTAMP DEFAULT NOW(),
+
+  UNIQUE(conversation_id, user_id)
+);
+
+CREATE TYPE member_role AS ENUM ('ADMIN', 'WRITE', 'READ');</pre>
+
+<h3>Role hierarchy</h3>
+
+<pre>ADMIN  (rank 3)
+  Can do everything WRITE can, plus:
+  Add or remove members, change roles, edit group name and avatar
+
+WRITE  (rank 2)
+  Can do everything READ can, plus:
+  Send text and media, edit own messages, delete own messages
+
+READ   (rank 1)
+  Receive messages, see members, see typing indicators
+  Cannot send anything. Attempts are rejected silently.</pre>
+
+<h3>Enforcement happens in two places, not one</h3>
+
+<p>A single enforcement point is a single point of failure. We check roles in two independent layers so that bypassing one does not help an attacker.</p>
+
+<p><strong>Layer 1: HTTP middleware</strong></p>
+
+<pre>const requireRole = (minimumRole: MemberRole) =>
+  async (req, res, next) => {
+    const member = await prisma.conversationMember.findUnique({
+      where: { conversationId_userId: {
+        conversationId: req.params.conversationId,
+        userId: req.user.id
+      }}
+    });
+
+    if (!member) throw new NotFoundError('Conversation');
+
+    const ROLE_RANK = { ADMIN: 3, WRITE: 2, READ: 1 };
+    if (ROLE_RANK[member.role] &lt; ROLE_RANK[minimumRole]) {
+      throw new ForbiddenError(`Requires ${minimumRole} role`);
+    }
+
+    req.memberRole = member.role;
+    next();
+  };
+
+router.post('/:id/members',        authMiddleware, requireRole('ADMIN'), addMember);
+router.delete('/:id/members/:uid', authMiddleware, requireRole('ADMIN'), removeMember);
+router.post('/messages',           authMiddleware, requireRole('WRITE'), sendMessage);</pre>
+
+<p><strong>Layer 2: WebSocket handler</strong></p>
+
+<p>HTTP middleware only protects REST routes. A malicious client can open a WebSocket connection and emit events directly, bypassing HTTP entirely. So we check the role again inside every relevant event handler.</p>
+
+<pre>socket.on('message:send', async (payload, ack) => {
+  const member = await ConvoRepo.findMember(payload.conversationId, userId);
+
+  if (!member) {
+    return ack({ status: 'error', code: 'NOT_A_MEMBER' });
+  }
+
+  if (member.role === 'READ') {
+    return ack({ status: 'error', code: 'PERMISSION_DENIED' });
+  }
+
+  // Only WRITE and ADMIN reach this point
+  const message = await MessageService.send(userId, payload);
+  io.to(`conversation:${payload.conversationId}`).emit('message:new', message);
+  ack({ status: 'ok', seq: message.seq });
+});</pre>
+
+<p>READ members still join the Socket.io room so they receive messages. They simply cannot emit anything that has an effect.</p>
+
+<h3>Why PostgreSQL for roles and not MongoDB</h3>
+
+<p>Roles are relational data. A role belongs to a user AND a conversation simultaneously. The UNIQUE constraint on the table ensures a user can never accidentally hold two roles in the same group. That guarantee comes from the database, not from application code. Role changes must also be immediately consistent: if an admin demotes someone to READ, that change must be enforced on the very next WebSocket event from that user. PostgreSQL's ACID guarantees this. Messages, by contrast, are high-volume append-only documents with no strict consistency requirements. MongoDB is better suited for that access pattern. Using the right database for the right problem is what makes systems maintainable at scale.</p>
+
+<h3>Path to 1 million users</h3>
+
+<p><strong>Step 1 (10K to 500K users): Cache roles in Redis.</strong> Currently we make one PostgreSQL query per WebSocket event to check the member's role. At 100K messages per second, that is 100K Postgres queries per second, which is too many. Caching the role in Redis for 5 minutes and invalidating on role changes reduces database load by around 90%.</p>
+
+<pre>const cacheKey = `role:${conversationId}:${userId}`;
+let role = await redis.get(cacheKey);
+
+if (!role) {
+  const member = await prisma.conversationMember.findUnique(...);
+  role = member?.role;
+  await redis.setex(cacheKey, 300, role);
+}</pre>
+
+<p><strong>Step 2 (500K to 1M users): Attach roles to the socket on connection.</strong> On connect, load all conversation roles for that user once and store them on the socket object. Role checks then become in-memory Map lookups with zero network calls. When an admin changes a role, emit a role:updated event to the affected user's socket to refresh their local map.</p>
+
+<pre>// On connect, load all roles once
+socket.data.roles = new Map(
+  memberships.map(m => [m.conversationId, m.role])
+);
+
+// On every message:send, zero network calls
+const role = socket.data.roles.get(payload.conversationId);
+if (!role || role === 'READ') return ack({ status: 'error' });</pre>
+
+<!-- Summary -->
+<div class="page-break"></div>
+<h2>Summary: The Scaling Philosophy</h2>
+
+<p>Every decision in this system was made by asking one question: does this work today and does it avoid blocking us tomorrow?</p>
+
+<table class="summary-table">
+  <tr>
+    <th>Decision</th>
+    <th>Works at 1K</th>
+    <th>Works at 1M</th>
+    <th>What changes</th>
+  </tr>
+  <tr><td>Socket.io + Redis adapter</td><td>Yes</td><td>Yes</td><td>Add server instances</td></tr>
+  <tr><td>Presigned URL uploads</td><td>Yes</td><td>Yes</td><td>Nothing, R2 scales infinitely</td></tr>
+  <tr><td>Typing via in-memory Map</td><td>Yes</td><td>Needs change</td><td>Move to Redis TTL keys</td></tr>
+  <tr><td>Role check per WS event</td><td>Yes</td><td>Needs change</td><td>Cache in Redis, then socket memory</td></tr>
+  <tr><td>Single PostgreSQL instance</td><td>Yes</td><td>Needs change</td><td>Read replicas and PgBouncer</td></tr>
+  <tr><td>Single Redis instance</td><td>Yes</td><td>Needs change</td><td>Separate clusters per concern</td></tr>
+  <tr><td>MongoDB message storage</td><td>Yes</td><td>Yes</td><td>Shard by conversationId</td></tr>
+  <tr><td>BullMQ offline delivery</td><td>Yes</td><td>Yes</td><td>Add worker instances</td></tr>
+</table>
+
+<p>The items that need changes are not wrong choices. They are deliberate starting points. A system optimised for 1M users from day one is over-engineered for 1K and will slow down every early decision. The right approach is to build clean abstractions, measure where actual bottlenecks appear, and fix them one at a time as the system grows.</p>
+
+<p>The Redis adapter, the presigned upload pattern, the dual-layer role enforcement, and the sequence number ordering are the upfront investments that make the scaling path incremental rather than requiring a full rewrite.</p>
+
+<hr style="margin-top: 48px; border: none; border-top: 1px solid #ddd;">
+<p style="font-size: 13px; color: #888; margin-top: 16px; text-align: center;">
+  Senapathi Mahesh &nbsp;|&nbsp;
+  <a href="https://github.com/Mahe9041/chatapp" style="color: #6C63FF;">github.com/Mahe9041/chatapp</a> &nbsp;|&nbsp;
+  <a href="https://chatapp-bht.pages.dev" style="color: #6C63FF;">chatapp-bht.pages.dev</a>
+</p>
+
+</body>
+</html>
