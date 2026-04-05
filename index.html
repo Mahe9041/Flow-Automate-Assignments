@@ -330,20 +330,6 @@ if (!role || role === 'READ') return ack({ status: 'error' });</pre>
   <a href="https://chatapp-server-jsap.onrender.com/health">API health check</a>
 </p>
 
-<style>
-  @media print {
-    /* Show all details sections when printing */
-    .details { display: block !important; }
-    /* Hide the toggle buttons */
-    .more-btn { display: none !important; }
-    /* Avoid page breaks inside questions */
-    .question { page-break-inside: avoid; margin-bottom: 28px; }
-    /* Force page break before summary */
-    .summary-section { page-break-before: always; }
-    /* Remove animation for print */
-    .details { animation: none !important; }
-  }
-</style>
 <script>
 function toggle(btn, id) {
   const details = document.getElementById(id);
